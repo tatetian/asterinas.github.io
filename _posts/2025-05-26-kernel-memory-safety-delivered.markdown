@@ -7,7 +7,7 @@ author: "Hongliang Tian"
 
 Less than one year ago, on July 19, 2024, millions of Windows desktops, servers, and devices suddenly crashed with the infamous "blue screen of death". This global incident—now known as [the CrowdStrike outage](https://en.wikipedia.org/wiki/2024_CrowdStrike-related_IT_outages)—was triggered by a memory-safety bug in a Windows driver: an out-of-bounds access. It was a sobering reminder that even mature, commercial off-the-shelf operating systems (OSes) like Windows and Linux remain vulnerable to memory-safety flaws.
 
-Two years before the CrowdStrike outage, around mid-2022, we began asking: could Rust finally solve the problem of kernel memory safety? Not partially. Not with guardrails. But completely.
+Two years before the CrowdStrike outage, around mid-2022, we began asking: **could Rust finally solve the problem of kernel memory safety?** Not partially. Not with guardrails. But completely.
 
 We came up with this new OS organization principle called the **framekernel** architecture, designed to unlock the full potential of Rust by confining `unsafe` code to a minimal, auditable scope within the kernel. The idea was bold but simple:
 
@@ -24,7 +24,7 @@ After three years of development and over 100,000 lines of Rust, Asterinas has g
 
 > Kernel memory safety has been delivered — with no compromises.
 
-We proved that a kernel with rich functionality, Linux compatibility, and competitive performance can be built entirely in safe Rust, atop a small and sound OS framework. We named this framework **OSTD**.
+We proved that an OS kernel with rich functionality, Linux compatibility, and competitive performance can be built entirely in safe Rust, atop a small and sound OS framework. We built such a framework, which is called **OSTD**.
 
 We reported the design and implementation of Asterinas and OSTD in a research paper, which has been accepted to [USENIX ATC 2025](https://www.usenix.org/conference/atc25/technical-sessions). You can find the preprint [here]().
 
@@ -38,10 +38,12 @@ The framekernel combines the best of both worlds:
 
 A framekernel lives in a single address space (like a monolithic kernel), but is **logically partitioned**:
 
-* The **OS framework** is _privileged_: it contains a small, rigorously verified amount of `unsafe` Rust and encapsulates them into high-level, safe abstractions.
-* The **OS services** are _de-privileged_: they are written entirely in safe Rust using those abstractions.
+* The **_privileged_ OS framework** contains a small amount of rigorously-verified `unsafe` Rust code, which is encapsulated into high-level, safe abstractions.
+* The **_de-privileged_ OS services** are written entirely in safe Rust using the abstractions provided by the OS framework.
 
-This **language-based, intra-kernel privilege separation** means that memory safety only depends on the correctness of the tiny privileged OS framework. Communication between different parts of the OS remains fast—via ordinary function calls and shared memory—preserving monolithic speed while enabling microkernel-like safety.
+This **language-based, intra-kernel privilege separation** means that the memory safety of the entire OS kernel only depends on the correctness of the tiny privileged OS framework. Communication between different parts of the OS remains fast—via ordinary function calls and shared memory—preserving monolithic speed while enabling microkernel-like safety.
+
+A comparison between the three OS architectures is summarized in the following figure (extracted from the paper):
 
 ![Kernel Architecture Comparison](/assets/images/monolithic-kernel-vs-microkernel-vs-framekernel.png)
 (TCB is short for Trusted Computing Base, which is the code responsible for kernel memory safety.)
@@ -50,7 +52,7 @@ This **language-based, intra-kernel privilege separation** means that memory saf
 
 Let's see a real example: handling system calls.
 
-In Asterinas, the OS framework is called OSTD. We position it as Rust's (unofficial) standard library for OS development and has published it to [crates.io](https://crates.io/crates/ostd). OSTD has been used for developing Asterinas and may be used for more Rust OSes. The diagram below shows how system call loop may be written entirely in safe Rust using the API of OSTD.
+As mentioned, the OS framework for Asterinas is called OSTD. We position it as Rust's (unofficial) standard library for OS development and has published it to [crates.io](https://crates.io/crates/ostd). OSTD has been used for developing Asterinas and may be used for more Rust-based OSes. The following diagram (extracted from the paper) shows how system call loop may be written entirely in safe Rust using the API of OSTD.
 
 ![Handling System Calls with OSTD](/assets/images/handling-system-calls-with-ostd.png)
 
@@ -67,19 +69,19 @@ For a fully working example, check out this sample project: [Write a Hello World
 
 ## Soundness Is Hard—But Possible
 
-Rust's promise of memory safety means **no [undefined behaviors (UBs)](https://doc.rust-lang.org/reference/behavior-considered-undefined.html)**. But UB in a kernel isn't just a language issue—it can stem from:
+Rust's promise of memory safety means **no [undefined behaviors (UBs)](https://doc.rust-lang.org/reference/behavior-considered-undefined.html)**. But UBs in a kernel aren't just a language issue—it can stem from:
 
-- Invalid memory mappings
-- Stack corruption
+- Compromised CPU states
 - Bad page tables
+- Corrupted stack
 - Faulty DMA devices
 - And more...
 
-To uphold Rust's guarantees, the TCB (i.e., OSTD) must defend against all of these. Even with hostile user code, misbehaving drivers, or malicious peripherals, OSTD must ensure the absence of UBs; this is called **soundness** in Rust.
+To uphold Rust’s guarantees, the TCB (i.e., OSTD) must defend against all of these threats. Even in the presence of hostile user programs, buggy drivers, or malicious peripherals, OSTD must ensure the absence of undefined behavior (UB)—a property known in Rust as **soundness**.
 
 We achieve soundness by:
-- Defining strict safety invariants for `ostd`'s APIs
-- Using MMU/IOMMU hardware enforcement
+- Defining strict safety invariants for OSTD's APIs
+- Using MMU and IOMMU hardware enforcement
 - Reviewing `unsafe` code rigorously
 - Running Miri (a Rust UB detector) on kernel code, with kernel-specific adaptations
 
@@ -91,7 +93,7 @@ After three years of development, we can now answer our original questions:
 
 > How *small* can the TCB be?
 
-Our TCB (`ostd`) is ~15K LoC—just 14% of the Asterinas kernel. The absolute size is comparable to verified microkernels like seL4 (~10K LoC) and the relative size is smaller than other Rust-based OSes such as Tock (43%), RedLeaf (66%), and Theseus (62%).
+Our TCB (OSTD) is approximately 15,000 lines of code—just 14% of the whole Asterinas kernel. In absolute terms, this is comparable to verified microkernels like [seL4](https://dl.acm.org/doi/10.1145/2560537) (~10K LoC), while commodity monolithic kernels (including [Rust for Linux](https://www.usenix.org/conference/atc24/presentation/li-hongyu)) have TCBs that are orders of magnitude larger. Relatively speaking, Asterinas also outperforms other Rust-based OSes: [Tock](https://github.com/tock/tock) (43%), [RedLeaf](https://github.com/mars-research/redleaf) (66%), and [Theseus](https://github.com/theseus-os/Theseus) (62%) all have significantly larger TCB proportions.
 
 > Is this too restrictive for _rich_ OS features?
 
@@ -100,14 +102,14 @@ No. Currently, Asterinas supports:
 - 210+ Linux system calls
 - x86-64 & RISC-V CPU architectures
 - File systems: Ext2, RamFS, SysFS, and OverlayFS
-- Networking: TCP, UDP, Unix, and Netlink
+- Sockets: TCP, UDP, Unix, and Netlink
 - Devices: Virtio, NVMe, and USB
 
-We hit rough edges in safe Rust, but never roadblocks.
+Working in safe Rust is like dancing in chains: the constraints are real, but with enough discipline, the dance is still graceful.
 
 > Would *performance* suffer?
 
-Minimal. Asterinas is highly optimized, matching Linux's performance on the syscall-intensive LMbench microbenchmarks in the single-core setting. Multi-core scalability is actively being improved. Perhaps the biggest performance challenge we faced is efficient IOMMU management—a hurdle we overcame with a static mapping strategy.
+Minimal. Asterinas is highly optimized, matching Linux's performance on the syscall-intensive [LMbench](https://github.com/intel/lmbench) microbenchmarks in the single-core setting. Multi-core scalability is actively being improved. Perhaps the biggest performance challenge we faced is efficient IOMMU management—a hurdle we overcame with a static mapping strategy.
 
 > Are memory-safety _bugs_ really gone?
 
@@ -115,10 +117,13 @@ Almost. Asterinas contributors build features in **100% safe Rust**. Only OSTD d
 
 ## Wrap Up
 
-The framekernel architecture proves that memory-safe OSes aren’t just possible—they're practical. **Asterinas is living proof.**
+The framekernel architecture proves that memory-safe OSes aren't just possible—they're practical. **Asterinas is living proof.**
 
 But this is just the beginning.
 
 Asterinas is being built in the open, and we're looking for contributors of all kinds to help push it forward. Whether you're writing code, improving documentation, building drivers, or testing edge cases, your contributions matter.
+
+Head over now and give us a visit:
+[https://github.com/asterinas/asterinas](https://github.com/asterinas/asterinas).
 
 Let’s make memory safety the new standard—together.
