@@ -26,7 +26,7 @@ After three years of development and over 100,000 lines of Rust, Asterinas has g
 
 We proved that an OS kernel with rich functionality, Linux compatibility, and competitive performance can be built entirely in safe Rust, atop a small and sound OS framework. We built such a framework, which is called **OSTD**.
 
-We reported the design and implementation of Asterinas and OSTD in a research paper, which has been accepted to [USENIX ATC 2025](https://www.usenix.org/conference/atc25/technical-sessions). You can find the preprint [here]().
+We reported the design and implementation of Asterinas and OSTD in a research paper, which has been accepted to [USENIX ATC 2025](https://www.usenix.org/conference/atc25/technical-sessions). You can find the preprint [on arXiv]().
 
 In this post, we'll give you a lightning tour of the framekernel architecture—and show how Asterinas brings it to life.
 
